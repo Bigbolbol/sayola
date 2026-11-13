@@ -20,7 +20,7 @@ No personal data goes on-chain. Agents and recipients never hold XLM: an operato
 | Mock USDC (Stellar Asset Contract) | [`CCKGWUX3FHO477VHFJ7TRZRCLAGNLMFZKHE33IY37HCFG3MZKRDFCQU2`](https://stellar.expert/explorer/testnet/contract/CCKGWUX3FHO477VHFJ7TRZRCLAGNLMFZKHE33IY37HCFG3MZKRDFCQU2) |
 | Mock USDC classic asset | `USDC:GCG2N4RHA6OX62WYIUP4FMAVCCAEISJRRWNYT4OZKVNVJXIFLXN6NJY5` |
 | Sample two-party cash-out | [`984fdfdc…2e6a`](https://stellar.expert/explorer/testnet/tx/984fdfdc46a770ea5ca66b9cc7d0ef973603ae93f3017ea0de82ac4b9ab72e6a) (agent and recipient both authorized; fee split to agent, vault and platform) |
-| Live app | _added after Vercel deploy_ |
+| Live app | [sayola-drab.vercel.app](https://sayola-drab.vercel.app) ([`stellar.toml`](https://sayola-drab.vercel.app/.well-known/stellar.toml)) |
 | Demo video | _added after recording_ |
 
 All demo account addresses are in [`deployments/testnet.json`](deployments/testnet.json). If testnet has been reset, run `./scripts/deploy.sh` to recreate everything.

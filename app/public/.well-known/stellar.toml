@@ -4,7 +4,8 @@ ACCOUNTS = ["GDLQ6YKMMD375HFZ4G36AM7KIJ2HPNJ553GQITWT5Q3XQOA3RAN4Z7JL"]
 
 [DOCUMENTATION]
 ORG_NAME = "Sayola"
-ORG_URL = "https://github.com/Bigbolbol/sayola"
+ORG_URL = "https://sayola-drab.vercel.app"
+ORG_GITHUB = "Bigbolbol/sayola"
 ORG_DESCRIPTION = "Booked cash-out with on-chain proof of delivery for aid and remittances in Syria, funded by a halal liquidity vault. Testnet prototype."
 
 [[CURRENCIES]]
