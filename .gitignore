@@ -1,0 +1,33 @@
+# Node
+node_modules/
+.next/
+out/
+dist/
+build/
+*.log
+npm-debug.log*
+.pnpm-debug.log*
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Rust / Soroban
+target/
+**/*.rs.bk
+.soroban/
+.stellar/
+test_snapshots/
+
+# Supabase
+supabase/.temp/
+supabase/.branches/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
