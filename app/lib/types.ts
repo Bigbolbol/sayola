@@ -1,0 +1,68 @@
+import type { RoleKey } from "./people";
+
+export type PaymentStatus = "Funded" | "Booked" | "CashedOut" | "Disputed" | "Resolved" | "Expired";
+
+export interface PaymentView {
+  id: number;
+  recipientKey: string;
+  amount: number;
+  fee: number;
+  expiresAt: number;
+  status: PaymentStatus;
+  agentKey: string | null;
+  windowEnd: number;
+  cashedOutAt: number;
+  disputedAmount: number;
+}
+
+export interface AgentView {
+  key: RoleKey;
+  address: string;
+  limit: number;
+  floatOut: number;
+  collateral: number;
+  active: boolean;
+  cashouts: number;
+  disputesUpheld: number;
+  balance: number;
+}
+
+export interface SayolaState {
+  contractId: string;
+  tokenId: string;
+  addresses: Record<RoleKey, string>;
+  vault: {
+    idle: number;
+    floatOut: number;
+    totalShares: number;
+    feesEarned: number;
+    losses: number;
+    shareValue: number;
+  };
+  config: { disputeWindow: number; noticePeriod: number };
+  payments: PaymentView[];
+  agents: AgentView[];
+  investor: {
+    shares: number;
+    pendingShares: number;
+    unlockAt: number;
+    balance: number;
+    value: number;
+  };
+  ngoBalance: number;
+  recipientBalances: Record<string, number>;
+  now: number;
+}
+
+export type Action =
+  | { action: "fund"; recipient: RoleKey; amount: number }
+  | { action: "book"; id: number; agent: RoleKey }
+  | { action: "confirm"; id: number; agent: RoleKey; code?: string; pin?: string }
+  | { action: "dispute"; id: number; missing: number }
+  | { action: "resolve"; id: number; upheld: boolean }
+  | { action: "expire"; id: number }
+  | { action: "deposit"; amount: number }
+  | { action: "requestWithdraw"; shares: number }
+  | { action: "claim" }
+  | { action: "takeFloat"; agent: RoleKey; amount: number }
+  | { action: "returnFloat"; agent: RoleKey; amount: number };

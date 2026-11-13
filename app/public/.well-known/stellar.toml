@@ -1,0 +1,18 @@
+VERSION = "2.7.0"
+NETWORK_PASSPHRASE = "Test SDF Network ; September 2015"
+ACCOUNTS = ["GDLQ6YKMMD375HFZ4G36AM7KIJ2HPNJ553GQITWT5Q3XQOA3RAN4Z7JL"]
+
+[DOCUMENTATION]
+ORG_NAME = "Sayola"
+ORG_URL = "https://github.com/Bigbolbol/sayola"
+ORG_DESCRIPTION = "Booked cash-out with on-chain proof of delivery for aid and remittances in Syria, funded by a halal liquidity vault. Testnet prototype."
+
+[[CURRENCIES]]
+code = "USDC"
+issuer = "GCG2N4RHA6OX62WYIUP4FMAVCCAEISJRRWNYT4OZKVNVJXIFLXN6NJY5"
+contract = "CCKGWUX3FHO477VHFJ7TRZRCLAGNLMFZKHE33IY37HCFG3MZKRDFCQU2"
+status = "test"
+display_decimals = 2
+name = "Mock USDC (testnet)"
+desc = "Test-only stand-in for USDC used by the Sayola prototype."
+is_asset_anchored = false
