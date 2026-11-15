@@ -1,5 +1,5 @@
 import "server-only";
-import { AGENTS, RECIPIENTS, type RoleKey } from "@/lib/people";
+import { AGENTS, RATE_SCALE, RECIPIENTS, type RoleKey } from "@/lib/people";
 import type { AgentView, PaymentView, SayolaState } from "@/lib/types";
 import { CONTRACT_ID, TOKEN_ID, address, read, roleOf, tokenBalance } from "./stellar";
 
@@ -26,6 +26,8 @@ interface RawPayment {
   window_end: bigint;
   cashed_out_at: bigint;
   disputed_amount: bigint;
+  local_amount: bigint;
+  local_rate: bigint;
 }
 
 interface RawAgent {
@@ -84,6 +86,8 @@ export async function loadState(): Promise<SayolaState> {
     windowEnd: Number(p.window_end),
     cashedOutAt: Number(p.cashed_out_at),
     disputedAmount: usd(p.disputed_amount),
+    localAmount: Number(p.local_amount ?? 0),
+    localRate: Number(p.local_rate ?? 0) / RATE_SCALE,
   }));
 
   const totalShares = usd(vault.total_shares);

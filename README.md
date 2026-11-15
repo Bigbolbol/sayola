@@ -20,10 +20,10 @@ No personal data goes on-chain. Agents and recipients never hold XLM: an operato
 
 | | |
 |---|---|
-| Sayola contract | [`CAR2NSAMCORUJSYMZCRBLLTGCNURYJLFQHAQLXT7QAJYAJTJ4TKEJIIE`](https://stellar.expert/explorer/testnet/contract/CAR2NSAMCORUJSYMZCRBLLTGCNURYJLFQHAQLXT7QAJYAJTJ4TKEJIIE) |
-| Mock USDC (Stellar Asset Contract) | [`CCKGWUX3FHO477VHFJ7TRZRCLAGNLMFZKHE33IY37HCFG3MZKRDFCQU2`](https://stellar.expert/explorer/testnet/contract/CCKGWUX3FHO477VHFJ7TRZRCLAGNLMFZKHE33IY37HCFG3MZKRDFCQU2) |
-| Mock USDC classic asset | `USDC:GCG2N4RHA6OX62WYIUP4FMAVCCAEISJRRWNYT4OZKVNVJXIFLXN6NJY5` |
-| Sample two-party cash-out | [`984fdfdc…2e6a`](https://stellar.expert/explorer/testnet/tx/984fdfdc46a770ea5ca66b9cc7d0ef973603ae93f3017ea0de82ac4b9ab72e6a) (agent and recipient both authorized; fee split to agent, vault and platform) |
+| Sayola contract | [`CCSEMW4VV2USRNDYLDUEJ6NFRZWMSCTJPC75TJUEAE6QXZAGHTYUQQYN`](https://stellar.expert/explorer/testnet/contract/CCSEMW4VV2USRNDYLDUEJ6NFRZWMSCTJPC75TJUEAE6QXZAGHTYUQQYN) |
+| Mock USDC (Stellar Asset Contract) | [`CCULDR7RSHC5SHL6NU7K5KOKG2VW5CE5U7HFBYJO4OMSUIVNX5R4AYNE`](https://stellar.expert/explorer/testnet/contract/CCULDR7RSHC5SHL6NU7K5KOKG2VW5CE5U7HFBYJO4OMSUIVNX5R4AYNE) |
+| Mock USDC classic asset | `USDC:GBT2MPOEZDUVSSXUCQEYCTSNFPYOGKO4YJLZCC7A6A6E4JSAQH2DUHTU` |
+| Sample two-party cash-out | [`5a534081…7e0b`](https://stellar.expert/explorer/testnet/tx/5a534081c9a320bcf072d9fa35e840c34ce552f4deea7fd023a3ab22b7127e0b): $378 paid as 50,274 pounds at 133 per dollar; agent and recipient both authorized the amount and rate; fee split to agent, vault and platform |
 | Live app | [sayola-drab.vercel.app](https://sayola-drab.vercel.app) ([`stellar.toml`](https://sayola-drab.vercel.app/.well-known/stellar.toml)) |
 | Demo video | _added after recording_ |
 
@@ -54,12 +54,13 @@ Investors ── deposit() ──► vault ── take_float() ──► agents 
 |---|---|---|
 | `fund` | NGO | Escrows amount + fee for a recipient |
 | `book` | recipient + agent | Reserves a cash-out window with a specific agent |
-| `confirm` | **agent + recipient** | Releases funds for the exact amount; returns the agent's float to the vault; splits the fee |
+| `confirm` | **agent + recipient** | Releases funds for the exact amount; records the pounds paid and the exchange rate (both signed, checked against each other); returns the agent's float to the vault; splits the fee |
 | `dispute` / `resolve` | recipient / admin | Private claim of missing cash; upheld claims slash agent collateral, then the vault |
 | `expire` | anyone | Refunds uncollected payments to the NGO |
 | `deposit` / `request_withdraw` / `claim` | investor | Vault shares, notice period, last-in-line withdrawals |
 | `set_agent` / `post_collateral` / `take_float` / `return_float` | admin / agent | Agent onboarding and partnership float |
 | `set_paused` | admin | Emergency stop |
+| `upgrade` | admin | Replaces the contract code while keeping its ID and data |
 
 ### On-chain vs off-chain
 
@@ -95,7 +96,7 @@ npm run dev                    # http://localhost:3000
 Contract tests:
 
 ```sh
-cargo test                     # 12 tests: fee split, two-party auth, disputes, withdrawals, expiry, limits, pause
+cargo test                     # 14 tests: fee split, two-party auth, recorded rate, disputes, withdrawals, expiry, limits, pause
 ```
 
 To run the app against the already-deployed contract instead, copy `app/.env.example` to `app/.env.local` and fill in the secrets for the demo accounts.
@@ -116,14 +117,14 @@ The vault is a partnership (*musharakah*): investors share real profit and loss 
 
 ## Exchange rate
 
-Payouts are in Syrian pounds at the licensed partner's published rate at the moment of handover (a spot exchange). Sayola never sets a rate. The app shows an illustrative partner rate of 133 pounds per dollar, between the official 122.5 and the street 149.5 (14 Nov 2026). Total cost to the NGO is the 2% service fee plus the partner's published rate, both visible per payment.
+Payouts are in Syrian pounds at the licensed partner's published rate at the moment of handover (a spot exchange). Sayola never sets a rate. The app shows an illustrative partner rate of 133 pounds per dollar, between the official 122.5 and the street 149.5 (14 Nov 2026). Both the agent and the recipient sign the pounds handed over and the rate; the contract checks they match the dollar amount and stores them with the payment and in the `CashedOut` event. Total cost to the NGO is the 2% service fee plus the partner's published rate, both visible per payment.
 
 ## Roadmap
 
-**Phase 1 (this prototype):** booked cash-out, two-party proof of delivery, payday forecast, halal liquidity vault.
+**Phase 1 (this prototype):** booked cash-out, two-party proof of delivery including the pounds paid and the exchange rate, payday forecast, halal liquidity vault.
 
 **Phase 2: community liquidity.**
-- The pounds paid and the partner's rate are recorded on-chain with each confirmation; the recipient gets a fixed amount in pounds and leftover USDC returns to the NGO.
+- Grants fixed in pounds, as the Cash Working Group sets them: the recipient gets a fixed amount in pounds and leftover USDC returns to the NGO.
 - Freelancers and families receiving remittances save in USDC and join the vault; client payments carry an invoice reference as proof of income.
 - Neighbours with pounds swap them for USDC at the agent at the same published rate, refilling the agent's drawer locally. Swapped USDC stays inside Sayola (vault, cash-out, supplier payments) to prevent arbitrage, with monthly limits per verified person.
 

@@ -13,6 +13,10 @@ export interface PaymentView {
   windowEnd: number;
   cashedOutAt: number;
   disputedAmount: number;
+  /** Pounds handed over, recorded on-chain at cash-out (0 before). */
+  localAmount: number;
+  /** Pounds per USD applied at cash-out (0 before). */
+  localRate: number;
 }
 
 export interface AgentView {

@@ -1,4 +1,4 @@
-import { AGENTS, RECIPIENTS, person, type RoleKey } from "@/lib/people";
+import { AGENTS, RATE_SCALE, RECIPIENTS, SYP_PER_USD, person, type RoleKey } from "@/lib/people";
 import { verifyCode } from "@/lib/server/otp";
 import { address, invoke, read, roleOf } from "@/lib/server/stellar";
 import type { Action } from "@/lib/types";
@@ -58,9 +58,17 @@ async function run(body: Action): Promise<string> {
       const codeOk = body.code !== undefined && verifyCode(`pay:${body.id}`, body.code.trim());
       if (!pinOk && !codeOk) throw new Error("Wrong code or PIN");
       const payment = await read<{ amount: bigint }>("get_payment", { id: BigInt(body.id) });
+      const localRate = BigInt(Math.round(SYP_PER_USD * RATE_SCALE));
+      const localAmount = (payment.amount * localRate) / BigInt(UNIT * RATE_SCALE);
       return invoke(
         "confirm",
-        { id: BigInt(body.id), agent: address(agent), amount: payment.amount },
+        {
+          id: BigInt(body.id),
+          agent: address(agent),
+          amount: payment.amount,
+          local_amount: localAmount,
+          local_rate: localRate,
+        },
         [agent, recipient],
       );
     }
@@ -113,6 +121,8 @@ function friendly(message: string): string {
     "14": "Notice period still running",
     "15": "No pending withdrawal",
     "16": "Contract is paused",
+    "17": "Not enough agent collateral",
+    "18": "Pounds paid do not match the amount at this rate",
   };
   return names[match[1]] ?? `Contract error #${match[1]}`;
 }

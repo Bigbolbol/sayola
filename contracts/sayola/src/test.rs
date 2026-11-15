@@ -10,6 +10,12 @@ use soroban_sdk::{
 const UNIT: i128 = 10_000_000;
 const DISPUTE_WINDOW: u64 = 3_600;
 const NOTICE: u64 = 600;
+/// 133.00 pounds per USD.
+const RATE: i128 = 13_300;
+
+fn local(amount: i128) -> i128 {
+    amount * RATE / (UNIT * 100)
+}
 
 fn err(e: Error) -> soroban_sdk::Error {
     soroban_sdk::Error::from_contract_error(e as u32)
@@ -90,7 +96,7 @@ fn full_cashout_with_float_and_fee_split() {
     assert_eq!(s.client.get_payment(&id).status, PaymentStatus::Booked);
 
     let agent_before = s.token.balance(&s.agent);
-    s.client.confirm(&id, &s.agent, &(100 * UNIT));
+    s.client.confirm(&id, &s.agent, &(100 * UNIT), &local(100 * UNIT), &RATE);
 
     let payment = s.client.get_payment(&id);
     assert_eq!(payment.status, PaymentStatus::CashedOut);
@@ -116,7 +122,7 @@ fn cashout_without_float_pays_agent_principal() {
         .client
         .fund(&s.ngo, &s.recipient, &(50 * UNIT), &UNIT, &10_000);
     let before = s.token.balance(&s.agent);
-    s.client.confirm(&id, &s.agent, &(50 * UNIT));
+    s.client.confirm(&id, &s.agent, &(50 * UNIT), &local(50 * UNIT), &RATE);
     assert_eq!(s.token.balance(&s.agent) - before, 50 * UNIT + 4_000_000);
     assert_eq!(s.client.get_payment(&id).status, PaymentStatus::CashedOut);
 }
@@ -127,7 +133,7 @@ fn confirm_requires_agent_and_recipient_auth() {
     let id = s
         .client
         .fund(&s.ngo, &s.recipient, &(10 * UNIT), &0, &10_000);
-    s.client.confirm(&id, &s.agent, &(10 * UNIT));
+    s.client.confirm(&id, &s.agent, &(10 * UNIT), &local(10 * UNIT), &RATE);
     let auths = s.env.auths();
     let signers: soroban_sdk::Vec<Address> = {
         let mut v = soroban_sdk::Vec::new(&s.env);
@@ -146,8 +152,34 @@ fn wrong_amount_is_rejected() {
     let id = s
         .client
         .fund(&s.ngo, &s.recipient, &(10 * UNIT), &0, &10_000);
-    let result = s.client.try_confirm(&id, &s.agent, &(9 * UNIT));
+    let result = s.client.try_confirm(&id, &s.agent, &(9 * UNIT), &local(9 * UNIT), &RATE);
     assert_eq!(result, Err(Ok(err(Error::AmountMismatch))));
+}
+
+#[test]
+fn cashout_records_local_amount_and_rate() {
+    let s = setup();
+    let id = s
+        .client
+        .fund(&s.ngo, &s.recipient, &(100 * UNIT), &0, &10_000);
+    s.client.confirm(&id, &s.agent, &(100 * UNIT), &13_300, &RATE);
+    let payment = s.client.get_payment(&id);
+    assert_eq!(payment.local_amount, 13_300);
+    assert_eq!(payment.local_rate, RATE);
+}
+
+#[test]
+fn local_amount_must_match_rate() {
+    let s = setup();
+    let id = s
+        .client
+        .fund(&s.ngo, &s.recipient, &(100 * UNIT), &0, &10_000);
+    let short = s.client.try_confirm(&id, &s.agent, &(100 * UNIT), &12_250, &RATE);
+    assert_eq!(short, Err(Ok(err(Error::LocalAmountMismatch))));
+    let no_rate = s.client.try_confirm(&id, &s.agent, &(100 * UNIT), &13_300, &0);
+    assert_eq!(no_rate, Err(Ok(err(Error::InvalidAmount))));
+    // Rounding by one pound is accepted.
+    s.client.confirm(&id, &s.agent, &(100 * UNIT), &13_301, &RATE);
 }
 
 #[test]
@@ -159,7 +191,7 @@ fn booked_payment_cannot_be_taken_by_another_agent_during_window() {
         .client
         .fund(&s.ngo, &s.recipient, &(10 * UNIT), &0, &10_000);
     s.client.book(&id, &s.agent, &5_000);
-    let result = s.client.try_confirm(&id, &other, &(10 * UNIT));
+    let result = s.client.try_confirm(&id, &other, &(10 * UNIT), &local(10 * UNIT), &RATE);
     assert_eq!(result, Err(Ok(err(Error::WrongAgent))));
 }
 
@@ -172,7 +204,7 @@ fn upheld_dispute_slashes_collateral_then_vault() {
     let id = s
         .client
         .fund(&s.ngo, &s.recipient, &(100 * UNIT), &0, &10_000);
-    s.client.confirm(&id, &s.agent, &(100 * UNIT));
+    s.client.confirm(&id, &s.agent, &(100 * UNIT), &local(100 * UNIT), &RATE);
     s.client.dispute(&id, &(30 * UNIT));
     assert_eq!(s.client.get_payment(&id).status, PaymentStatus::Disputed);
 
@@ -195,7 +227,7 @@ fn dispute_after_window_is_rejected() {
     let id = s
         .client
         .fund(&s.ngo, &s.recipient, &(10 * UNIT), &0, &100_000);
-    s.client.confirm(&id, &s.agent, &(10 * UNIT));
+    s.client.confirm(&id, &s.agent, &(10 * UNIT), &local(10 * UNIT), &RATE);
     s.env
         .ledger()
         .with_mut(|l| l.timestamp += DISPUTE_WINDOW + 1);
@@ -251,7 +283,7 @@ fn later_depositor_gets_fewer_shares_after_profit() {
     let id = s
         .client
         .fund(&s.ngo, &s.recipient, &(100 * UNIT), &(20 * UNIT), &10_000);
-    s.client.confirm(&id, &s.agent, &(100 * UNIT));
+    s.client.confirm(&id, &s.agent, &(100 * UNIT), &local(100 * UNIT), &RATE);
     // Vault earned 10 USDC, so 1,010 USDC backs 1,000 shares.
     let late = Address::generate(&s.env);
     StellarAssetClient::new(&s.env, &s.token.address).mint(&late, &(101 * UNIT));

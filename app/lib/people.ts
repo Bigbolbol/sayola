@@ -78,6 +78,9 @@ export const RATES = {
 
 export const SYP_PER_USD = RATES.partner;
 
+/** The contract stores rates with 2 decimals. */
+export const RATE_SCALE = 100;
+
 export function syp(usdAmount: number): string {
   return `${Math.round(usdAmount * SYP_PER_USD).toLocaleString("ar-SY")} ل.س`;
 }

@@ -81,7 +81,7 @@ export default function RecipientPage() {
             بدون أي رسوم عليك
           </div>
           <div className="mt-1 text-xs text-stone-500">
-            يظهر السعر والمبلغ بالليرة قبل أن تؤكد الاستلام.
+            يظهر السعر والمبلغ بالليرة قبل أن تؤكد الاستلام، ويُسجَّلان مع الدفعة.
           </div>
         </Card>
 
@@ -93,7 +93,16 @@ export default function RecipientPage() {
               <div>
                 <div className="font-semibold">مساعدة نقدية #{p.id}</div>
                 <div className="text-sm text-stone-600">
-                  {syp(p.amount)} ({usd(p.amount)})
+                  {p.localAmount > 0 ? (
+                    <>
+                      استلمت {p.localAmount.toLocaleString("ar-SY")} ل.س بسعر {p.localRate} ({usd(p.amount)}) · مسجّل على
+                      البلوك تشين
+                    </>
+                  ) : (
+                    <>
+                      {syp(p.amount)} ({usd(p.amount)})
+                    </>
+                  )}
                 </div>
               </div>
               <StatusBadge status={p.status} arabic />

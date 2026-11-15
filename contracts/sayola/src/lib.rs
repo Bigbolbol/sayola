@@ -14,7 +14,7 @@
 
 use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contracttype, panic_with_error,
-    token::TokenClient, Address, Env,
+    token::TokenClient, Address, BytesN, ContractExecutable, Env,
 };
 
 const BPS: i128 = 10_000;
@@ -22,6 +22,10 @@ const AGENT_FEE_BPS: i128 = 4_000;
 const VAULT_FEE_BPS: i128 = 5_000;
 /// Share value is reported with 7 decimals, matching Stellar asset precision.
 const SHARE_VALUE_SCALE: i128 = 10_000_000;
+/// Token amounts use 7 decimals.
+const TOKEN_UNIT: i128 = 10_000_000;
+/// Exchange rates are local currency units per USD with 2 decimals (133.00 = 13_300).
+const RATE_SCALE: i128 = 100;
 
 const DAY_IN_LEDGERS: u32 = 17_280;
 const TTL_THRESHOLD: u32 = 7 * DAY_IN_LEDGERS;
@@ -48,6 +52,7 @@ pub enum Error {
     NoPendingWithdrawal = 15,
     Paused = 16,
     InsufficientCollateral = 17,
+    LocalAmountMismatch = 18,
 }
 
 #[contracttype]
@@ -74,6 +79,10 @@ pub struct Payment {
     pub window_end: u64,
     pub cashed_out_at: u64,
     pub disputed_amount: i128,
+    /// Whole units of local currency handed over at cash-out (0 until then).
+    pub local_amount: i128,
+    /// Licensed partner's published rate applied at cash-out, scaled by `RATE_SCALE`.
+    pub local_rate: i128,
 }
 
 #[contracttype]
@@ -155,6 +164,8 @@ pub struct CashedOut {
     pub vault_fee: i128,
     pub platform_fee: i128,
     pub float_returned: i128,
+    pub local_amount: i128,
+    pub local_rate: i128,
 }
 
 #[contractevent]
@@ -260,6 +271,13 @@ impl Sayola {
         bump_instance(&env);
     }
 
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        let config = read_config(&env);
+        config.admin.require_auth();
+        env.deployer()
+            .update_current_contract(ContractExecutable::Wasm(new_wasm_hash));
+    }
+
     /// Registers an agent or updates the float limit and active flag of an existing one.
     pub fn set_agent(env: Env, agent: Address, limit: i128, active: bool) {
         let config = read_config(&env);
@@ -327,6 +345,8 @@ impl Sayola {
                 window_end: 0,
                 cashed_out_at: 0,
                 disputed_amount: 0,
+                local_amount: 0,
+                local_rate: 0,
             },
         );
         Funded {
@@ -370,8 +390,9 @@ impl Sayola {
     }
 
     /// Completes a cash-out. Both the agent and the recipient must authorize the
-    /// exact amount of cash handed over.
-    pub fn confirm(env: Env, id: u64, agent: Address, amount: i128) {
+    /// exact amount, the local cash handed over and the exchange rate applied.
+    /// `local_amount` must equal `amount` at `local_rate`, within one unit for rounding.
+    pub fn confirm(env: Env, id: u64, agent: Address, amount: i128, local_amount: i128, local_rate: i128) {
         require_not_paused(&env);
         let mut payment = read_payment(&env, id);
         agent.require_auth();
@@ -392,6 +413,13 @@ impl Sayola {
         }
         if amount != payment.amount {
             panic_with_error!(&env, Error::AmountMismatch);
+        }
+        if local_rate <= 0 || local_amount <= 0 {
+            panic_with_error!(&env, Error::InvalidAmount);
+        }
+        let expected_local = mul_div(&env, amount, local_rate, TOKEN_UNIT * RATE_SCALE);
+        if (local_amount - expected_local).abs() > 1 {
+            panic_with_error!(&env, Error::LocalAmountMismatch);
         }
 
         let mut agent_rec = read_agent(&env, &agent);
@@ -420,6 +448,8 @@ impl Sayola {
         payment.status = PaymentStatus::CashedOut;
         payment.agent = Some(agent.clone());
         payment.cashed_out_at = now;
+        payment.local_amount = local_amount;
+        payment.local_rate = local_rate;
 
         write_payment(&env, id, &payment);
         write_agent(&env, &agent, &agent_rec);
@@ -443,6 +473,8 @@ impl Sayola {
             vault_fee,
             platform_fee,
             float_returned,
+            local_amount,
+            local_rate,
         }
         .publish(&env);
     }

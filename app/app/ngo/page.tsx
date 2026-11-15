@@ -105,7 +105,7 @@ export default function NgoPage() {
           <div className="grid gap-3 text-sm sm:grid-cols-3">
             {[
               { label: "Central Bank official", rate: RATES.official, note: "Government and bank transactions" },
-              { label: "Licensed partner (example)", rate: RATES.partner, note: "Paid to recipients at handover" },
+              { label: "Licensed partner (example)", rate: RATES.partner, note: "Paid at handover, recorded with each cash-out" },
               { label: "Street market", rate: RATES.street, note: "What a dollar costs in practice" },
             ].map((r) => (
               <div
@@ -121,7 +121,8 @@ export default function NgoPage() {
           </div>
           <p className="mt-2 text-xs text-stone-500">
             New Syrian pounds, 14 Nov 2026. Payouts are in pounds at the partner&apos;s published rate; Sayola never sets
-            the rate. Next phase: the rate and pounds paid are recorded on-chain with each cash-out.
+            the rate. The agent and the recipient both sign the pounds paid and the rate, which are stored on-chain with
+            the payment.
           </p>
         </Card>
 
@@ -165,6 +166,7 @@ export default function NgoPage() {
                   <th className="py-2">#</th>
                   <th>Recipient</th>
                   <th>Amount</th>
+                  <th>Paid in pounds</th>
                   <th>Status</th>
                   <th>Agent</th>
                   <th></th>
@@ -179,6 +181,16 @@ export default function NgoPage() {
                       <span className="text-stone-400">· {person(p.recipientKey)?.area}</span>
                     </td>
                     <td>{usd(p.amount)}</td>
+                    <td>
+                      {p.localAmount > 0 ? (
+                        <>
+                          {p.localAmount.toLocaleString("en-US")} SYP{" "}
+                          <span className="text-stone-400">@ {p.localRate}</span>
+                        </>
+                      ) : (
+                        <span className="text-stone-400">—</span>
+                      )}
+                    </td>
                     <td>
                       <StatusBadge status={p.status} />
                       {p.status === "Disputed" && (
