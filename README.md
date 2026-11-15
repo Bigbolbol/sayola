@@ -42,7 +42,7 @@ Agent pays cash ─ SMS code / PIN ─► confirm()  needs BOTH signatures
                                       │
            ┌──────────────────────────┼─────────────────────────┐
            ▼                          ▼                         ▼
-   agent's vault float          fee 40% agent           fee 50% vault
+   agent's vault float          fee 40% agent network   fee 50% vault
    returned first               10% platform            (share value ↑)
 
 Investors ── deposit() ──► vault ── take_float() ──► agents stock cash
