@@ -113,7 +113,7 @@ To run the app against the already-deployed contract instead, copy `app/.env.exa
 
 ## Why this is halal
 
-The vault is a partnership (*musharakah*): investors share real profit and loss through the share value, and no return is guaranteed. Income comes only from cash-out service fees. Float is partnership capital, never a loan, so agents never pay for the amount or duration of float. Losses fall on agent collateral first. Currency exchange happens spot, when cash is handed over. A Shariah adviser should review the terms before any real launch.
+The vault is a partnership (*musharakah*) in a cash-delivery business: savers provide capital, the licensed agent network provides its own capital and the work, and they share the fee 50 to 40; Sayola's 10% is a management fee. Investors share real profit and loss through the share value, and no return is guaranteed. Income comes only from cash-out service fees, never from a charge for the use of money. Float is partnership capital, never a loan, so agents never pay for the amount or duration of float. Agent collateral covers losses from negligence or misconduct, such as short-paying a family; losses with no fault are shared in proportion to capital. Currency exchange happens spot, when cash is handed over. A Shariah adviser should review the terms before any real launch.
 
 ## Exchange rate
 
