@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button, Card, Header, Loading, Stat, StatusBadge, TxNotice, usd } from "@/components/ui";
 import { useSayola } from "@/components/useSayola";
-import { AREAS, RECIPIENTS, person, type RoleKey } from "@/lib/people";
+import { AREAS, RATES, RECIPIENTS, person, type RoleKey } from "@/lib/people";
 
 export default function NgoPage() {
   const { state, loadError, busy, last, act } = useSayola();
@@ -98,6 +98,30 @@ export default function NgoPage() {
           <p className="mt-2 text-xs text-stone-500">
             Demand comes from funded payments not yet collected. Float is partnership capital from the vault that agents
             hold as cash.
+          </p>
+        </Card>
+
+        <Card title="Exchange rate: what a $100 grant becomes">
+          <div className="grid gap-3 text-sm sm:grid-cols-3">
+            {[
+              { label: "Central Bank official", rate: RATES.official, note: "Government and bank transactions" },
+              { label: "Licensed partner (example)", rate: RATES.partner, note: "Paid to recipients at handover" },
+              { label: "Street market", rate: RATES.street, note: "What a dollar costs in practice" },
+            ].map((r) => (
+              <div
+                key={r.label}
+                className={`rounded-xl border p-3 ${r.rate === RATES.partner ? "border-emerald-600 bg-emerald-50" : "border-stone-200"}`}
+              >
+                <div className="text-stone-500">{r.label}</div>
+                <div className="text-lg font-semibold">{r.rate} SYP / USD</div>
+                <div className="font-medium">{Math.round(100 * r.rate).toLocaleString("en-US")} SYP</div>
+                <div className="text-xs text-stone-500">{r.note}</div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-stone-500">
+            New Syrian pounds, 14 Nov 2026. Payouts are in pounds at the partner&apos;s published rate; Sayola never sets
+            the rate. Next phase: the rate and pounds paid are recorded on-chain with each cash-out.
           </p>
         </Card>
 

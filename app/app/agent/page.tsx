@@ -4,11 +4,7 @@ import { useCallback, useState } from "react";
 import { QrScanner } from "@/components/QrScanner";
 import { Button, Card, Header, Loading, Stat, StatusBadge, TxNotice, usd } from "@/components/ui";
 import { useSayola } from "@/components/useSayola";
-import { AGENTS, SYP_PER_USD, person, type RoleKey } from "@/lib/people";
-
-function syp(n: number): string {
-  return `${Math.round(n * SYP_PER_USD).toLocaleString("ar-SY")} ل.س`;
-}
+import { AGENTS, SYP_PER_USD, person, syp, type RoleKey } from "@/lib/people";
 
 export default function AgentPage() {
   const { state, loadError, busy, last, act } = useSayola();
@@ -132,6 +128,9 @@ export default function AgentPage() {
                       <div className="font-semibold">{person(selected.recipientKey)?.nameAr}</div>
                       <div className="text-sm text-stone-600">
                         سلّم نقداً: <span className="font-semibold">{syp(selected.amount)}</span> ({usd(selected.amount)})
+                      </div>
+                      <div className="text-xs text-stone-500">
+                        بسعر الشريك المرخّص المعلن اليوم: {SYP_PER_USD} ل.س للدولار (مثال)
                       </div>
                     </div>
                     <StatusBadge status={selected.status} arabic />

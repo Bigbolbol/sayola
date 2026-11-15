@@ -69,8 +69,18 @@ export const AGENTS: RoleKey[] = ["agent-idlib", "agent-aleppo"];
 export const RECIPIENTS: RoleKey[] = ["recipient-1", "recipient-2", "recipient-3"];
 export const AREAS: Area[] = ["Idlib", "Aleppo"];
 
-/** Central Bank of Syria official bulletin, Nov 2026 (new pounds per USD). */
-export const SYP_PER_USD = 122;
+/** New Syrian pounds per USD, 14 Nov 2026. The partner rate is an illustrative licensed-provider rate. */
+export const RATES = {
+  official: 122.5,
+  partner: 133,
+  street: 149.5,
+} as const;
+
+export const SYP_PER_USD = RATES.partner;
+
+export function syp(usdAmount: number): string {
+  return `${Math.round(usdAmount * SYP_PER_USD).toLocaleString("ar-SY")} ل.س`;
+}
 
 export function person(key: string): Person | undefined {
   return PEOPLE.find((p) => p.key === key);

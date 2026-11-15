@@ -4,12 +4,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 import { Button, Card, Header, Loading, StatusBadge, TxNotice, usd } from "@/components/ui";
 import { useSayola } from "@/components/useSayola";
-import { AGENTS, RECIPIENTS, SYP_PER_USD, person, type RoleKey } from "@/lib/people";
+import { AGENTS, RECIPIENTS, SYP_PER_USD, person, syp, type RoleKey } from "@/lib/people";
 import type { PaymentView } from "@/lib/types";
-
-function syp(n: number): string {
-  return `${Math.round(n * SYP_PER_USD).toLocaleString("ar-SY")} ل.س`;
-}
 
 function PhoneInbox({ payment }: { payment: PaymentView }) {
   const [code, setCode] = useState<string | null>(null);
@@ -81,7 +77,11 @@ export default function RecipientPage() {
           <div className="text-sm text-stone-500">بانتظار الاستلام</div>
           <div className="mt-1 text-3xl font-bold">{syp(waiting.reduce((s, p) => s + p.amount, 0))}</div>
           <div className="text-sm text-stone-500">
-            {usd(waiting.reduce((s, p) => s + p.amount, 0))} · السعر الرسمي {SYP_PER_USD} ل.س للدولار · بدون أي رسوم عليك
+            {usd(waiting.reduce((s, p) => s + p.amount, 0))} · سعر الشريك المرخّص {SYP_PER_USD} ل.س للدولار (مثال) ·
+            بدون أي رسوم عليك
+          </div>
+          <div className="mt-1 text-xs text-stone-500">
+            يظهر السعر والمبلغ بالليرة قبل أن تؤكد الاستلام.
           </div>
         </Card>
 

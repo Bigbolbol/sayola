@@ -2,6 +2,10 @@
 
 **Aid and remittances reach Syria in seconds. Sayola makes sure the cash is there too, funded by halal income from families' savings.**
 
+**The problem.** Since 2026, aid in Syria must be paid out in Syrian pounds, and the UN's 2026 response plan warns that cash-out liquidity needs close monitoring because supplies of the new banknotes are uncertain ([HNRP 2026](https://humanitarianaction.info/plan/1518/document/syria-humanitarian-needs-and-response-plan-2026/article/27-cash-voucher-assistance-overview-and-multipurpose-cash-section-5)). Families make wasted trips when agents run out of notes, can be paid less than promised, and nobody can prove what exchange rate they received. The official rate (122.5) and the street rate (149.5) differ by about 22% ([LiraScope](https://lirascope.syria-cloud.sy/en/gap)); in 2020 the official rate cost aid agencies about [51 cents of every aid dollar](https://www.csis.org/analysis/how-assad-regime-systematically-diverts-tens-millions-aid) spent in-country.
+
+**The insight.** Syria's two shortages cancel each other out. Families on aid hold digital dollars but need pounds. Their neighbours hold pounds but can't find dollars. Sayola is designed to run on licensed money transfer providers, such as Digibank's liquidity points, so their agents can match the two on the same street, with proof of every handover.
+
 Sayola extends Stellar for the last mile of cash assistance and remittances in Syria:
 
 - **Booked cash-out with proof of delivery.** An NGO funds a payment for a recipient in a Soroban contract. The recipient can book a cash-out so an agent commits cash in advance. Funds are released only when **both the agent and the recipient authorize the exact amount** handed over, by SMS code or printed card + PIN. The recipient can dispute privately afterwards; upheld disputes are paid from the agent's collateral.
@@ -71,7 +75,7 @@ Next.js + TypeScript + Tailwind, mobile-first. Four views:
 
 - **NGO** (`/ngo`): fund payments, payday forecast with one-click pre-positioning, payment status, dispute resolution.
 - **Agent** (`/agent`, Arabic): float and limit, booking queue, scan QR or enter payment number, confirm with SMS code or card + PIN, take or return float.
-- **Recipient** (`/recipient`, Arabic): balance in new Syrian pounds at the official rate, book an agent, QR code, simulated phone inbox, private dispute.
+- **Recipient** (`/recipient`, Arabic): balance in new Syrian pounds at the partner's rate, book an agent, QR code, simulated phone inbox, private dispute.
 - **Investor** (`/invest`): position, share value, deposit, notice-period withdrawal.
 
 The server builds each transaction with the Stellar SDK, collects authorization signatures from every party the contract requires, and submits it from the operator account, which pays the fee.
@@ -110,9 +114,24 @@ To run the app against the already-deployed contract instead, copy `app/.env.exa
 
 The vault is a partnership (*musharakah*): investors share real profit and loss through the share value, and no return is guaranteed. Income comes only from cash-out service fees. Float is partnership capital, never a loan, so agents never pay for the amount or duration of float. Losses fall on agent collateral first. Currency exchange happens spot, when cash is handed over. A Shariah adviser should review the terms before any real launch.
 
+## Exchange rate
+
+Payouts are in Syrian pounds at the licensed partner's published rate at the moment of handover (a spot exchange). Sayola never sets a rate. The app shows an illustrative partner rate of 133 pounds per dollar, between the official 122.5 and the street 149.5 (14 Nov 2026). Total cost to the NGO is the 2% service fee plus the partner's published rate, both visible per payment.
+
 ## Roadmap
 
-Licensed Syrian cash-out partner via SEP-10/SEP-24 anchor integration, Stellar Disbursement Platform integration, passkey wallets, real SMS and USSD for basic phones, payout beneficiaries and allowances for vault positions, reserve fund, takaful for cash in transit, OpenZeppelin SEP-56 vault migration and audit.
+**Phase 1 (this prototype):** booked cash-out, two-party proof of delivery, payday forecast, halal liquidity vault.
+
+**Phase 2: community liquidity.**
+- The pounds paid and the partner's rate are recorded on-chain with each confirmation; the recipient gets a fixed amount in pounds and leftover USDC returns to the NGO.
+- Freelancers and families receiving remittances save in USDC and join the vault; client payments carry an invoice reference as proof of income.
+- Neighbours with pounds swap them for USDC at the agent at the same published rate, refilling the agent's drawer locally. Swapped USDC stays inside Sayola (vault, cash-out, supplier payments) to prevent arbitrage, with monthly limits per verified person.
+
+**Phase 3: fewer cash-outs.** Importers pay foreign suppliers in USDC directly, in line with Central Bank rules that keep domestic payments in pounds.
+
+**Infrastructure:** licensed partner via SEP-10/SEP-24 anchor integration, Stellar Disbursement Platform integration, passkey wallets, real SMS and USSD for basic phones, reserve fund, takaful for cash in transit, OpenZeppelin SEP-56 vault migration, Shariah review and audit.
+
+Open legal questions being verified: whether licensed exchange companies may sell dollars to individuals for savings, how Syria classifies USDC, and the Central Bank's exact trading band.
 
 ## Repository layout
 
