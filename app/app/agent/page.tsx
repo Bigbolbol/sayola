@@ -37,6 +37,9 @@ export default function AgentPage() {
 
   const agent = state.agents.find((a) => a.key === agentKey)!;
   const me = person(agentKey)!;
+  const todayUsage = agent.days[0];
+  const cashoutLeft = Math.max(0, agent.dailyCashoutCap - todayUsage.cashoutCommitted);
+  const floatLeft = Math.max(0, agent.dailyFloatCap - todayUsage.floatTaken);
   const queue = state.payments.filter(
     (p) =>
       (p.status === "Booked" && p.agentKey === agentKey) ||
@@ -87,12 +90,26 @@ export default function AgentPage() {
 
         <TxNotice busy={busy} last={last} arabic />
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           <Stat label="السيولة من الصندوق" value={usd(agent.floatOut)} hint={`الحد ${usd(agent.limit, 0)}`} />
+          <Stat
+            label="المتبقي للصرف اليوم"
+            value={usd(cashoutLeft, 0)}
+            hint={`الحد اليومي ${usd(agent.dailyCashoutCap, 0)} · يشمل الحجوزات`}
+          />
+          <Stat
+            label="المتبقي لسحب السيولة اليوم"
+            value={usd(floatLeft, 0)}
+            hint={`الحد اليومي ${usd(agent.dailyFloatCap, 0)}`}
+          />
           <Stat label="الضمان المودع" value={usd(agent.collateral)} />
           <Stat label="عمليات الصرف" value={agent.cashouts} hint={`اعتراضات مقبولة: ${agent.disputesUpheld}`} />
           <Stat label="رصيدي (عمولات)" value={usd(agent.balance)} />
         </div>
+        <p className="text-xs text-stone-500">
+          الحدود اليومية تحدّ من النقد الموجود في المحل في أي يوم، لحمايتك وحماية المستفيدين. تتجدد عند منتصف الليل بتوقيت
+          دمشق.
+        </p>
 
         <Card title="صرف نقدي">
           {scanning ? (
@@ -210,7 +227,7 @@ export default function AgentPage() {
               onChange={(e) => setFloatAmount(Number(e.target.value))}
             />
             <Button
-              disabled={!!busy || floatAmount <= 0}
+              disabled={!!busy || floatAmount <= 0 || floatAmount > floatLeft}
               onClick={() => act({ action: "takeFloat", agent: agentKey, amount: floatAmount }, "take float")}
             >
               سحب {usd(floatAmount, 0)}

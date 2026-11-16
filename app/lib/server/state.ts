@@ -32,6 +32,8 @@ interface RawPayment {
 
 interface RawAgent {
   limit: bigint;
+  daily_float_cap: bigint;
+  daily_cashout_cap: bigint;
   float_out: bigint;
   collateral: bigint;
   active: boolean;
@@ -39,8 +41,15 @@ interface RawAgent {
   disputes_upheld: number;
 }
 
+interface RawDayUsage {
+  float_taken: bigint;
+  cashout_committed: bigint;
+}
+
+const FORECAST_DAYS = 3;
+
 export async function loadState(): Promise<SayolaState> {
-  const [count, vault, shareValue, config, position, investorBalance, ngoBalance] = await Promise.all([
+  const [count, vault, shareValue, config, position, investorBalance, ngoBalance, today] = await Promise.all([
     read<bigint>("payment_count"),
     read<Record<string, bigint>>("vault"),
     read<bigint>("share_value"),
@@ -48,21 +57,31 @@ export async function loadState(): Promise<SayolaState> {
     read<Record<string, bigint>>("get_position", { investor: address("investor") }),
     tokenBalance("investor"),
     tokenBalance("ngo"),
+    read<bigint>("today"),
   ]);
+  const days = Array.from({ length: FORECAST_DAYS }, (_, i) => BigInt(today) + BigInt(i));
 
   const ids = Array.from({ length: Number(count) }, (_, i) => i);
   const [rawPayments, agents, recipientBalances] = await Promise.all([
     Promise.all(ids.map((id) => read<RawPayment>("get_payment", { id: BigInt(id) }))),
     Promise.all(
       AGENTS.map(async (key): Promise<AgentView> => {
-        const [a, balance] = await Promise.all([
+        const [a, balance, usage] = await Promise.all([
           read<RawAgent>("get_agent", { agent: address(key) }),
           tokenBalance(key),
+          Promise.all(days.map((day) => read<RawDayUsage>("get_agent_day", { agent: address(key), day }))),
         ]);
         return {
           key,
           address: address(key),
           limit: usd(a.limit),
+          dailyFloatCap: usd(a.daily_float_cap),
+          dailyCashoutCap: usd(a.daily_cashout_cap),
+          days: usage.map((u, i) => ({
+            day: Number(days[i]),
+            floatTaken: usd(u.float_taken),
+            cashoutCommitted: usd(u.cashout_committed),
+          })),
           floatOut: usd(a.float_out),
           collateral: usd(a.collateral),
           active: a.active,

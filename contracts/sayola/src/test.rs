@@ -65,7 +65,7 @@ fn setup<'a>() -> Setup<'a> {
         ),
     );
     let client = SayolaClient::new(&env, &contract_id);
-    client.set_agent(&agent, &(500 * UNIT), &true);
+    client.set_agent(&agent, &(500 * UNIT), &(1_000 * UNIT), &(1_000 * UNIT), &true);
 
     Setup {
         env,
@@ -186,7 +186,7 @@ fn local_amount_must_match_rate() {
 fn booked_payment_cannot_be_taken_by_another_agent_during_window() {
     let s = setup();
     let other = Address::generate(&s.env);
-    s.client.set_agent(&other, &(100 * UNIT), &true);
+    s.client.set_agent(&other, &(100 * UNIT), &(100 * UNIT), &(100 * UNIT), &true);
     let id = s
         .client
         .fund(&s.ngo, &s.recipient, &(10 * UNIT), &0, &10_000);
@@ -297,6 +297,109 @@ fn float_limit_is_enforced() {
     s.client.deposit(&s.investor, &(1_000 * UNIT));
     let result = s.client.try_take_float(&s.agent, &(501 * UNIT));
     assert_eq!(result, Err(Ok(err(Error::FloatLimitExceeded))));
+}
+
+const DAY: u64 = 86_400;
+
+fn set_daily_caps(s: &Setup, float_cap: i128, cashout_cap: i128) {
+    s.client
+        .set_agent(&s.agent, &(500 * UNIT), &float_cap, &cashout_cap, &true);
+}
+
+#[test]
+fn booking_reserves_daily_cashout_cap() {
+    let s = setup();
+    set_daily_caps(&s, 1_000 * UNIT, 100 * UNIT);
+    let booked = s
+        .client
+        .fund(&s.ngo, &s.recipient, &(60 * UNIT), &0, &10_000);
+    let second = s
+        .client
+        .fund(&s.ngo, &s.recipient, &(50 * UNIT), &0, &10_000);
+    s.client.book(&booked, &s.agent, &5_000);
+
+    assert_eq!(
+        s.client.try_book(&second, &s.agent, &5_000),
+        Err(Ok(err(Error::DailyCapExceeded)))
+    );
+    let walk_in = s.client.try_confirm(&second, &s.agent, &(50 * UNIT), &local(50 * UNIT), &RATE);
+    assert_eq!(walk_in, Err(Ok(err(Error::DailyCapExceeded))));
+
+    s.client
+        .confirm(&booked, &s.agent, &(60 * UNIT), &local(60 * UNIT), &RATE);
+    let day = s.client.today();
+    assert_eq!(
+        s.client.get_agent_day(&s.agent, &day).cashout_committed,
+        60 * UNIT
+    );
+}
+
+#[test]
+fn booked_recipient_is_served_when_cap_is_full() {
+    let s = setup();
+    set_daily_caps(&s, 1_000 * UNIT, 100 * UNIT);
+    let id = s
+        .client
+        .fund(&s.ngo, &s.recipient, &(100 * UNIT), &0, &10_000);
+    s.client.book(&id, &s.agent, &5_000);
+    s.client.confirm(&id, &s.agent, &(100 * UNIT), &local(100 * UNIT), &RATE);
+    assert_eq!(s.client.get_payment(&id).status, PaymentStatus::CashedOut);
+}
+
+#[test]
+fn booking_for_another_day_moves_to_that_days_cap() {
+    let s = setup();
+    set_daily_caps(&s, 1_000 * UNIT, 100 * UNIT);
+    let id = s
+        .client
+        .fund(&s.ngo, &s.recipient, &(100 * UNIT), &0, &(10 * DAY));
+    let tomorrow_window = 1_000 + DAY;
+    s.client.book(&id, &s.agent, &tomorrow_window);
+    let today = s.client.today();
+    assert_eq!(s.client.get_agent_day(&s.agent, &today).cashout_committed, 0);
+    assert_eq!(
+        s.client.get_agent_day(&s.agent, &(today + 1)).cashout_committed,
+        100 * UNIT
+    );
+
+    // Collecting a day early counts against today and frees tomorrow.
+    s.client.confirm(&id, &s.agent, &(100 * UNIT), &local(100 * UNIT), &RATE);
+    assert_eq!(
+        s.client.get_agent_day(&s.agent, &today).cashout_committed,
+        100 * UNIT
+    );
+    assert_eq!(s.client.get_agent_day(&s.agent, &(today + 1)).cashout_committed, 0);
+}
+
+#[test]
+fn expiry_releases_booking_reservation() {
+    let s = setup();
+    set_daily_caps(&s, 1_000 * UNIT, 100 * UNIT);
+    let id = s
+        .client
+        .fund(&s.ngo, &s.recipient, &(100 * UNIT), &0, &2_000);
+    s.client.book(&id, &s.agent, &1_500);
+    s.env.ledger().with_mut(|l| l.timestamp = 2_000);
+    s.client.expire(&id);
+    let today = s.client.today();
+    assert_eq!(s.client.get_agent_day(&s.agent, &today).cashout_committed, 0);
+}
+
+#[test]
+fn daily_float_cap_cannot_be_reset_by_returning_float() {
+    let s = setup();
+    set_daily_caps(&s, 300 * UNIT, 1_000 * UNIT);
+    s.client.deposit(&s.investor, &(1_000 * UNIT));
+    s.client.take_float(&s.agent, &(300 * UNIT));
+    s.client.return_float(&s.agent, &(300 * UNIT));
+    assert_eq!(
+        s.client.try_take_float(&s.agent, &UNIT),
+        Err(Ok(err(Error::DailyCapExceeded)))
+    );
+
+    s.env.ledger().with_mut(|l| l.timestamp += DAY);
+    s.client.take_float(&s.agent, &(300 * UNIT));
+    assert_eq!(s.client.get_agent(&s.agent).float_out, 300 * UNIT);
 }
 
 #[test]

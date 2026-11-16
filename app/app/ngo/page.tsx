@@ -32,9 +32,13 @@ export default function NgoPage() {
     const shortfall = Math.max(0, demand - cash);
     const agent = agents[0];
     const headroom = agent ? Math.max(0, agent.limit - agent.floatOut) : 0;
-    const topUp = Math.min(shortfall, headroom, state.vault.idle);
-    return { area, demand, cash, shortfall, agent, topUp };
+    const floatLeftToday = agent ? Math.max(0, agent.dailyFloatCap - agent.days[0].floatTaken) : 0;
+    const topUp = Math.min(shortfall, headroom, floatLeftToday, state.vault.idle);
+    const dailyCapacity = agents.reduce((s, a) => s + a.dailyCashoutCap, 0);
+    const daysToServe = dailyCapacity > 0 ? Math.ceil(demand / dailyCapacity) : 0;
+    return { area, demand, cash, shortfall, agent, topUp, daysToServe };
   });
+  const dayLabels = ["Today", "Tomorrow", "Day after"];
 
   return (
     <>
@@ -66,6 +70,7 @@ export default function NgoPage() {
                   <th>Scheduled cash-outs</th>
                   <th>Cash positioned at agents</th>
                   <th>Shortfall</th>
+                  <th>Days to serve at daily caps</th>
                   <th></th>
                 </tr>
               </thead>
@@ -78,6 +83,7 @@ export default function NgoPage() {
                     <td className={f.shortfall > 0 ? "font-semibold text-rose-700" : "text-emerald-700"}>
                       {f.shortfall > 0 ? usd(f.shortfall) : "Covered"}
                     </td>
+                    <td>{f.demand > 0 ? f.daysToServe : "—"}</td>
                     <td className="text-right">
                       {f.agent && f.topUp > 0 && (
                         <Button
@@ -97,7 +103,45 @@ export default function NgoPage() {
           </div>
           <p className="mt-2 text-xs text-stone-500">
             Demand comes from funded payments not yet collected. Float is partnership capital from the vault that agents
-            hold as cash.
+            hold as cash. Pre-positioning is limited by each agent&apos;s daily float cap.
+          </p>
+        </Card>
+
+        <Card title="Agent cash-out room by day">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-stone-500">
+                <tr>
+                  <th className="py-2">Agent</th>
+                  <th>Daily cap</th>
+                  {dayLabels.map((d) => (
+                    <th key={d}>{d}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {state.agents.map((a) => (
+                  <tr key={a.key} className="border-t border-stone-100">
+                    <td className="py-2 font-medium">
+                      {person(a.key)?.name} <span className="text-stone-400">· {person(a.key)?.area}</span>
+                    </td>
+                    <td>{usd(a.dailyCashoutCap, 0)}</td>
+                    {a.days.map((d) => {
+                      const room = Math.max(0, a.dailyCashoutCap - d.cashoutCommitted);
+                      return (
+                        <td key={d.day} className={room === 0 ? "font-semibold text-rose-700" : ""}>
+                          {usd(room, 0)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-xs text-stone-500">
+            Each agent hands out at most its daily cap, so a large payday is spread over several days and agents instead
+            of filling one drawer that the whole street can see on-chain. Fund in cohorts to match this room.
           </p>
         </Card>
 

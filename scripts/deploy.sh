@@ -51,12 +51,17 @@ call() {
 }
 
 echo "==> Seeding agents, vault and payments"
-call admin set_agent --agent "$(addr agent-idlib)" --limit $((5000 * USDC)) --active true
-call admin set_agent --agent "$(addr agent-aleppo)" --limit $((3000 * USDC)) --active true
+# Daily caps bound the cash in any one shop per day (physical safety): set per agent by the licensed partner.
+DAILY_FLOAT_CAP=$((1500 * USDC))
+DAILY_CASHOUT_CAP=$((2000 * USDC))
+call admin set_agent --agent "$(addr agent-idlib)" --limit $((5000 * USDC)) \
+  --daily_float_cap "$DAILY_FLOAT_CAP" --daily_cashout_cap "$DAILY_CASHOUT_CAP" --active true
+call admin set_agent --agent "$(addr agent-aleppo)" --limit $((3000 * USDC)) \
+  --daily_float_cap "$DAILY_FLOAT_CAP" --daily_cashout_cap "$DAILY_CASHOUT_CAP" --active true
 call agent-idlib post_collateral --agent "$(addr agent-idlib)" --amount $((500 * USDC))
 call agent-aleppo post_collateral --agent "$(addr agent-aleppo)" --amount $((500 * USDC))
 call investor deposit --investor "$(addr investor)" --assets $((10000 * USDC))
-call agent-idlib take_float --agent "$(addr agent-idlib)" --amount $((1500 * USDC))
+call agent-idlib take_float --agent "$(addr agent-idlib)" --amount $((1000 * USDC))
 
 EXPIRES=$(( $(date +%s) + 30 * 86400 ))
 for r in recipient-1 recipient-2 recipient-3; do

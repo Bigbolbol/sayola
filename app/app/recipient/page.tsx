@@ -48,6 +48,14 @@ export default function RecipientPage() {
   const mine = state.payments.filter((p) => p.recipientKey === who).reverse();
   const nearby = AGENTS.slice().sort((a) => (person(a)?.area === me.area ? -1 : 1));
   const waiting = mine.filter((p) => p.status === "Funded" || p.status === "Booked");
+  // Bookings hold a two-hour window; the reservation counts against the day that window ends (UTC+3).
+  const bookingDay = Math.floor((state.now + 2 * 3_600 + 3 * 3_600) / 86_400);
+  const roomFor = (agentKey: RoleKey) => {
+    const a = state.agents.find((x) => x.key === agentKey);
+    if (!a) return 0;
+    const used = a.days.find((d) => d.day === bookingDay)?.cashoutCommitted ?? 0;
+    return Math.max(0, a.dailyCashoutCap - used);
+  };
 
   return (
     <>
@@ -121,17 +129,27 @@ export default function RecipientPage() {
                     <>
                       <p className="text-sm text-stone-600">احجز موعداً ليكون النقد جاهزاً عند الوكيل:</p>
                       <div className="flex flex-wrap gap-2">
-                        {nearby.map((a) => (
-                          <Button
-                            key={a}
-                            variant={person(a)?.area === me.area ? "primary" : "secondary"}
-                            disabled={!!busy}
-                            onClick={() => act({ action: "book", id: p.id, agent: a }, "book cash-out")}
-                          >
-                            {person(a)?.nameAr}
-                          </Button>
-                        ))}
+                        {nearby.map((a) => {
+                          const full = roomFor(a) < p.amount;
+                          return (
+                            <Button
+                              key={a}
+                              variant={person(a)?.area === me.area && !full ? "primary" : "secondary"}
+                              disabled={!!busy || full}
+                              onClick={() => act({ action: "book", id: p.id, agent: a }, "book cash-out")}
+                            >
+                              {person(a)?.nameAr}
+                              {full && " · مكتمل اليوم"}
+                            </Button>
+                          );
+                        })}
                       </div>
+                      {nearby.some((a) => roomFor(a) < p.amount) && (
+                        <p className="text-xs text-stone-500">
+                          الوكيل المكتمل وصل إلى حدّه اليومي من النقد لحماية المحل والمستفيدين. جرّب وكيلاً آخر، أو عُد
+                          غداً.
+                        </p>
+                      )}
                     </>
                   )}
                   <div className="flex items-center gap-3 rounded-xl bg-stone-50 p-3">

@@ -19,10 +19,21 @@ export interface PaymentView {
   localRate: number;
 }
 
+export interface DayUsageView {
+  /** Local day index (UTC+3), as returned by the contract's `today`. */
+  day: number;
+  floatTaken: number;
+  cashoutCommitted: number;
+}
+
 export interface AgentView {
   key: RoleKey;
   address: string;
   limit: number;
+  dailyFloatCap: number;
+  dailyCashoutCap: number;
+  /** Cap usage for today and the next two local days, today first. */
+  days: DayUsageView[];
   floatOut: number;
   collateral: number;
   active: boolean;

@@ -123,6 +123,8 @@ function friendly(message: string): string {
     "16": "Contract is paused",
     "17": "Not enough agent collateral",
     "18": "Pounds paid do not match the amount at this rate",
+    "19":
+      "هذا الوكيل وصل إلى حدّه اليومي من النقد. جرّب وكيلاً آخر أو يوماً آخر. · This agent has reached its daily cash cap; try another agent or another day.",
   };
   return names[match[1]] ?? `Contract error #${match[1]}`;
 }

@@ -27,6 +27,10 @@ const TOKEN_UNIT: i128 = 10_000_000;
 /// Exchange rates are local currency units per USD with 2 decimals (133.00 = 13_300).
 const RATE_SCALE: i128 = 100;
 
+/// Daily caps reset at local midnight in Syria (UTC+3).
+const LOCAL_UTC_OFFSET: u64 = 3 * 3_600;
+const DAY_SECONDS: u64 = 86_400;
+
 const DAY_IN_LEDGERS: u32 = 17_280;
 const TTL_THRESHOLD: u32 = 7 * DAY_IN_LEDGERS;
 const TTL_EXTEND_TO: u32 = 60 * DAY_IN_LEDGERS;
@@ -53,6 +57,7 @@ pub enum Error {
     Paused = 16,
     InsufficientCollateral = 17,
     LocalAmountMismatch = 18,
+    DailyCapExceeded = 19,
 }
 
 #[contracttype]
@@ -89,11 +94,24 @@ pub struct Payment {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Agent {
     pub limit: i128,
+    /// Most float the agent may take in one local day, bounding cash brought into the shop.
+    pub daily_float_cap: i128,
+    /// Most cash the agent may hand out (booked or walk-in) in one local day.
+    pub daily_cashout_cap: i128,
     pub float_out: i128,
     pub collateral: i128,
     pub active: bool,
     pub cashouts: u32,
     pub disputes_upheld: u32,
+}
+
+/// An agent's usage of its daily caps for one local day.
+#[contracttype]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct DayUsage {
+    pub float_taken: i128,
+    /// Bookings reserved for this day plus walk-in cash-outs completed on it.
+    pub cashout_committed: i128,
 }
 
 #[contracttype]
@@ -134,6 +152,7 @@ enum DataKey {
     Payment(u64),
     Agent(Address),
     Position(Address),
+    AgentDay(Address, u64),
 }
 
 #[contractevent]
@@ -278,13 +297,25 @@ impl Sayola {
             .update_current_contract(ContractExecutable::Wasm(new_wasm_hash));
     }
 
-    /// Registers an agent or updates the float limit and active flag of an existing one.
-    pub fn set_agent(env: Env, agent: Address, limit: i128, active: bool) {
+    /// Registers an agent or updates the limits and active flag of an existing one.
+    /// The daily caps bound how much cash sits in the shop on any one day.
+    pub fn set_agent(
+        env: Env,
+        agent: Address,
+        limit: i128,
+        daily_float_cap: i128,
+        daily_cashout_cap: i128,
+        active: bool,
+    ) {
         let config = read_config(&env);
         config.admin.require_auth();
         require_non_negative(&env, limit);
+        require_non_negative(&env, daily_float_cap);
+        require_non_negative(&env, daily_cashout_cap);
         let record = read_agent_opt(&env, &agent).unwrap_or(Agent {
             limit: 0,
+            daily_float_cap: 0,
+            daily_cashout_cap: 0,
             float_out: 0,
             collateral: 0,
             active: true,
@@ -296,6 +327,8 @@ impl Sayola {
             &agent,
             &Agent {
                 limit,
+                daily_float_cap,
+                daily_cashout_cap,
                 active,
                 ..record
             },
@@ -361,11 +394,13 @@ impl Sayola {
     }
 
     /// The recipient reserves a cash-out with an agent, who commits cash until `window_end`.
+    /// The amount is reserved against the agent's daily cash-out cap for the day of
+    /// `window_end`, so a booked recipient is never turned away for cap reasons.
     pub fn book(env: Env, id: u64, agent: Address, window_end: u64) {
         let mut payment = read_payment(&env, id);
         payment.recipient.require_auth();
         agent.require_auth();
-        require_active_agent(&env, &agent);
+        let agent_rec = require_active_agent(&env, &agent);
         let now = env.ledger().timestamp();
         if now >= payment.expires_at {
             panic_with_error!(&env, Error::Expired);
@@ -377,6 +412,10 @@ impl Sayola {
         if window_end <= now {
             panic_with_error!(&env, Error::InvalidAmount);
         }
+        if rebooking {
+            release_booking(&env, &payment);
+        }
+        commit_cashout(&env, &agent, &agent_rec, local_day(window_end), payment.amount);
         payment.status = PaymentStatus::Booked;
         payment.agent = Some(agent.clone());
         payment.window_end = window_end;
@@ -426,6 +465,20 @@ impl Sayola {
         if !agent_rec.active {
             panic_with_error!(&env, Error::AgentInactive);
         }
+
+        // A booking with this agent for today already holds its place under the daily cap.
+        // Anything else (walk-in, another agent, another day) counts against today's cap.
+        let today = local_day(now);
+        let reserved_today = payment.status == PaymentStatus::Booked
+            && payment.agent == Some(agent.clone())
+            && local_day(payment.window_end) == today;
+        if !reserved_today {
+            if payment.status == PaymentStatus::Booked {
+                release_booking(&env, &payment);
+            }
+            commit_cashout(&env, &agent, &agent_rec, today, amount);
+        }
+
         let mut vault = read_vault(&env);
 
         // Cash the agent paid out returns their partnership float to the vault first.
@@ -569,6 +622,9 @@ impl Sayola {
         if env.ledger().timestamp() < payment.expires_at {
             panic_with_error!(&env, Error::NotExpired);
         }
+        if payment.status == PaymentStatus::Booked {
+            release_booking(&env, &payment);
+        }
         let refunded = checked_add(&env, payment.amount, payment.fee);
         payment.status = PaymentStatus::Expired;
         write_payment(&env, id, &payment);
@@ -681,7 +737,8 @@ impl Sayola {
         CollateralPosted { agent, amount }.publish(&env);
     }
 
-    /// Agent takes partnership capital from the vault to stock cash, up to their limit.
+    /// Agent takes partnership capital from the vault to stock cash, up to their limit
+    /// and their daily float cap. Returning float does not restore the day's allowance.
     pub fn take_float(env: Env, agent: Address, amount: i128) {
         agent.require_auth();
         require_not_paused(&env);
@@ -691,6 +748,13 @@ impl Sayola {
         if new_float > agent_rec.limit {
             panic_with_error!(&env, Error::FloatLimitExceeded);
         }
+        let today = local_day(env.ledger().timestamp());
+        let mut usage = read_day_usage(&env, &agent, today);
+        usage.float_taken = checked_add(&env, usage.float_taken, amount);
+        if usage.float_taken > agent_rec.daily_float_cap {
+            panic_with_error!(&env, Error::DailyCapExceeded);
+        }
+        write_day_usage(&env, &agent, today, &usage);
         let mut vault = read_vault(&env);
         if amount > vault.idle {
             panic_with_error!(&env, Error::InsufficientLiquidity);
@@ -754,6 +818,16 @@ impl Sayola {
 
     pub fn get_position(env: Env, investor: Address) -> Position {
         read_position(&env, &investor)
+    }
+
+    /// The agent's cap usage for a local day, as returned by `today`.
+    pub fn get_agent_day(env: Env, agent: Address, day: u64) -> DayUsage {
+        read_day_usage(&env, &agent, day)
+    }
+
+    /// The current local day index used for daily caps (days since epoch in UTC+3).
+    pub fn today(env: Env) -> u64 {
+        local_day(env.ledger().timestamp())
     }
 
     pub fn vault(env: Env) -> VaultState {
@@ -867,6 +941,44 @@ fn write_position(env: &Env, investor: &Address, position: &Position) {
         .persistent()
         .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND_TO);
     bump_instance(env);
+}
+
+fn local_day(timestamp: u64) -> u64 {
+    timestamp.saturating_add(LOCAL_UTC_OFFSET) / DAY_SECONDS
+}
+
+fn read_day_usage(env: &Env, agent: &Address, day: u64) -> DayUsage {
+    env.storage()
+        .persistent()
+        .get(&DataKey::AgentDay(agent.clone(), day))
+        .unwrap_or_default()
+}
+
+fn write_day_usage(env: &Env, agent: &Address, day: u64, usage: &DayUsage) {
+    let key = DataKey::AgentDay(agent.clone(), day);
+    env.storage().persistent().set(&key, usage);
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND_TO);
+}
+
+fn commit_cashout(env: &Env, agent: &Address, record: &Agent, day: u64, amount: i128) {
+    let mut usage = read_day_usage(env, agent, day);
+    usage.cashout_committed = checked_add(env, usage.cashout_committed, amount);
+    if usage.cashout_committed > record.daily_cashout_cap {
+        panic_with_error!(env, Error::DailyCapExceeded);
+    }
+    write_day_usage(env, agent, day, &usage);
+}
+
+/// Frees the daily cash-out reservation held by a booked payment.
+fn release_booking(env: &Env, payment: &Payment) {
+    if let Some(agent) = &payment.agent {
+        let day = local_day(payment.window_end);
+        let mut usage = read_day_usage(env, agent, day);
+        usage.cashout_committed = (usage.cashout_committed - payment.amount).max(0);
+        write_day_usage(env, agent, day, &usage);
+    }
 }
 
 fn require_positive(env: &Env, amount: i128) {
