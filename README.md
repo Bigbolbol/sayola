@@ -2,6 +2,10 @@
 
 **Aid and remittances reach Syria in seconds. Sayola makes sure the cash is there too, funded by halal income from families' savings.**
 
+[![Sayola demo: an NGO funds aid, the agent is stocked from the vault, the family books and collects pounds, and both sign the handover on Stellar testnet](demo/demo-preview.gif)](demo/demo.mp4)
+
+*Preview at 4× speed. [Watch the full demo](demo/demo.mp4) or [try the live app](https://sayola-drab.vercel.app).*
+
 **The problem.** Since 2026, aid in Syria must be paid out in Syrian pounds, and the UN's 2026 response plan warns that cash-out liquidity needs close monitoring because supplies of the new banknotes are uncertain ([HNRP 2026](https://humanitarianaction.info/plan/1518/document/syria-humanitarian-needs-and-response-plan-2026/article/27-cash-voucher-assistance-overview-and-multipurpose-cash-section-5)). Families make wasted trips when agents run out of notes, can be paid less than promised, and nobody can prove what exchange rate they received. The official rate (122.5) and the street rate (149.5) differ by about 22% ([LiraScope](https://lirascope.syria-cloud.sy/en/gap)). Paying aid in pounds cut its value by up to 25% and delayed it by weeks in 2026 ([ACAPS, via ReliefWeb](https://reliefweb.int/attachments/70b14499-38bd-4e30-80a9-3437f01cfdc9/3.8%20Syria%202026%20SDR_KG-Final.pdf)).
 
 **The insight.** Syria's two shortages cancel each other out. Families on aid hold digital dollars but need pounds. Their neighbours hold pounds but can't find dollars. Sayola is designed to run on licensed money transfer providers, such as Digibank's liquidity points, so their agents can match the two on the same street, with proof of every handover.
@@ -151,7 +155,7 @@ A pilot with a licensed partner is how actual savings and trip counts will be me
 | Mock USDC classic asset | `USDC:GC7K3CLY6TBSFYWBQBKVGG73UMSDVMKZMNWSDL2J5TOKBAUZMZGJAGEA` |
 | Sample booked, two-party cash-out | [`6a4eca31…0aba`](https://stellar.expert/explorer/testnet/tx/6a4eca3169d368d3f02c4ccaadd58173175a4fd4e338fa1fbf350cd2813ea0bd): $378 paid as 50,274 pounds at 133 per dollar; agent and recipient both authorized the amount and rate; fee split to agent, vault and platform. Booked in [`1ba21c0a…0aba`](https://stellar.expert/explorer/testnet/tx/1ba21c0acd7104fee306e951f41070e80bcc40dc674dcf2401c66263cf360aba), which reserved the amount against the agent's daily ceiling |
 | Live app | [sayola-drab.vercel.app](https://sayola-drab.vercel.app) ([`stellar.toml`](https://sayola-drab.vercel.app/.well-known/stellar.toml)) |
-| Demo video | _added after recording_ |
+| Demo video | [`demo/demo.mp4`](demo/demo.mp4) |
 
 All demo account addresses are in [`deployments/testnet.json`](deployments/testnet.json). If testnet has been reset, run `./scripts/deploy.sh` to recreate everything.
 
